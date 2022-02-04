@@ -144,7 +144,7 @@ fn control_transfer<T: UsbContext>(device_handle: &mut DeviceHandle<T>) -> Resul
 
     sleep(Duration::from_millis(1));
 
-    let sidetone_half = [0x00, 0xf4];
+    let sidetone_value = [0x00, 0xf4];
 
     println!("Writing control data...");
 
@@ -157,7 +157,7 @@ fn control_transfer<T: UsbContext>(device_handle: &mut DeviceHandle<T>) -> Resul
         1,
         0x0200,
         1536,
-        &sidetone_half,
+        &sidetone_value,
         Duration::from_millis(1000),
     )?;
 
