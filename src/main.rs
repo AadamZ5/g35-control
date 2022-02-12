@@ -9,7 +9,6 @@ fn main() -> Result<()> {
     let (mut device, mut handle) = open_device(&mut context, g35::VENDOR_ID, g35::PRODUCT_ID)
         .expect("Failed to open USB device");
 
-    print_device_info(&mut handle)?;
     control_transfer(&mut handle)?;
     Ok(())
 }
@@ -104,7 +103,11 @@ fn print_device_info<T: UsbContext>(handle: &mut DeviceHandle<T>) -> Result<()> 
 }
 
 fn control_transfer<T: UsbContext>(device_handle: &mut DeviceHandle<T>) -> Result<()> {
-    device_handle.set_auto_detach_kernel_driver(false)?;
+    /*
+    TODO: Detaching the kernel driver causes the audio device to disappear, and when the
+    TODO: driver is reattached, the audio device is not restored. How can I fix this?
+    */
+    device_handle.set_auto_detach_kernel_driver(true)?;
 
     let device_descriptor = device_handle.device().device_descriptor()?;
     let active_config = device_handle.device().active_config_descriptor()?;
@@ -126,15 +129,15 @@ fn control_transfer<T: UsbContext>(device_handle: &mut DeviceHandle<T>) -> Resul
         println!("Kernel driver was detached!");
     }
 
-    if device_handle
-        .kernel_driver_active(interface_number_to_claim)
-        .unwrap_or(false)
-    {
-        println!(
-            "Kernel has driver active on interface {}",
-            interface_number_to_claim
-        );
-    }
+    // if device_handle
+    //     .kernel_driver_active(interface_number_to_claim)
+    //     .unwrap_or(false)
+    // {
+    //     println!(
+    //         "Kernel has driver active on interface {}",
+    //         interface_number_to_claim
+    //     );
+    // }
 
     println!("Attaching to interface {}...", interface_number_to_claim);
 
@@ -148,14 +151,17 @@ fn control_transfer<T: UsbContext>(device_handle: &mut DeviceHandle<T>) -> Resul
 
     println!("Writing control data...");
 
+    //I had to read https://www.usb.org/sites/default/files/audio10.pdf section 5.2.2.4.1
+
     device_handle.write_control(
-        request_type(
-            rusb::Direction::Out,
-            rusb::RequestType::Class,
-            rusb::Recipient::Interface,
-        ),
+        // request_type(
+        //     rusb::Direction::Out,
+        //     rusb::RequestType::Class,
+        //     rusb::Recipient::Interface,
+        // ),
+        0b00100001, //TODO: Use `request_type(...)`
         1,
-        0x0200,
+        0x0100,
         1536,
         &sidetone_value,
         Duration::from_millis(1000),
@@ -163,9 +169,10 @@ fn control_transfer<T: UsbContext>(device_handle: &mut DeviceHandle<T>) -> Resul
 
     println!("Wrote control data!");
 
-    // let sleep_len = 3;
-    // println!("Sleeping for {} seconds...", sleep_len);
-    // sleep(Duration::from_secs(sleep_len));
+    //Sleep so I can verify sidetone before releasing back to kernel (which resets the device)
+    let sleep_len = 3;
+    println!("Sleeping for {} seconds...", sleep_len);
+    sleep(Duration::from_secs(sleep_len));
 
     // if kernel_was_attached {
     //     println!("Restoring kernel driver...");
